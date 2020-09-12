@@ -3,21 +3,23 @@ from django.db import models
 
 class QueryParam(models.Model):
     q = models.CharField(max_length=200, blank=True)
-    accepted = models.BooleanField(blank=True)
-    answers = models.IntegerField(null=True)
+    title = models.CharField(max_length=200,  blank=True)
     body = models.CharField(max_length=200,  blank=True)
+    tagged = models.CharField(max_length=200,  blank=True)
+    # TODO: another field must be mentioned if nottagged is used
+    nottagged = models.CharField(max_length=200,  blank=True)
+
+    accepted = models.BooleanField(blank=True)
     closed = models.BooleanField(blank=True)
     migrated = models.BooleanField(blank=True)
     notice = models.BooleanField(blank=True)
-    title = models.CharField(max_length=200,  blank=True)
-    user = models.IntegerField(null=True)
-    url = models.URLField(max_length=200, blank=True)
-    views = models.IntegerField(null=True)
     wiki = models.BooleanField(blank=True)
 
-    tagged = models.CharField(max_length=200,  blank=True)
-    # TODO: another field must be mentioned if this is used
-    nottagged = models.CharField(max_length=200,  blank=True)
+    answers = models.IntegerField(null=True)
+    user = models.IntegerField(null=True)
+    views = models.IntegerField(null=True)
+
+    url = models.URLField(max_length=200, blank=True)
 
     ORDER_CHOICES = [
         ("desc", "desc"),
@@ -82,5 +84,7 @@ class Question(models.Model):
         to_field="user_id"
     )
 
-# SearchResult:
-#         Question[] / Q_ids[]
+
+# class SearchResult(models.Model):
+#     questions = models.ManyToManyField(to=Question)
+#     # qp = models.OneToOneField
