@@ -81,3 +81,6 @@ class Question(models.Model):
         on_delete=models.CASCADE,
         to_field="user_id"
     )
+
+# SearchResult:
+#         Question[] / Q_ids[]

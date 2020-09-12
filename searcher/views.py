@@ -1,5 +1,6 @@
-
-# Create your views here.
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework.request import Request
 from rest_framework import viewsets
 from rest_framework import permissions
 
@@ -23,3 +24,31 @@ class ShallowUserViewSet(viewsets.ModelViewSet):
     queryset = ShallowUser.objects.all().order_by('user_id')
     serializer_class = ShallowUserSerializer
     permission_classes = [permissions.AllowAny]
+
+
+@api_view()
+def search_view(request: Request):
+    """ 
+    # pseudocode
+
+    quota not left for quota_minute or quota_daily?
+        return error
+    does request.query_params exists in QueryParam table?
+    yes:
+        find the corresponding SearchResult
+        return SearchResult
+    no:
+        fetch SearchResult from stackoverflow
+        save (QueryParam, Question[], SearchResult) to DB
+        return SearchResult
+
+    """
+
+    out = {
+        "quota_daily": 100,
+        "quota_minute": 5,
+        "query_params": request.query_params,
+        "users": [user.display_name for user in ShallowUser.objects.all()],
+        "questions": [question.title for question in Question.objects.all()],
+    }
+    return Response(out)
