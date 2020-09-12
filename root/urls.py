@@ -1,13 +1,13 @@
 
 from django.urls import include, path
 from rest_framework import routers
-from searcher.views import QueryParamViewSet
+from searcher.views import QueryParamViewSet, QuestionViewSet, ShallowUserViewSet
 
 router = routers.DefaultRouter()
-router.register(r'query-param', QueryParamViewSet)
+router.register(r'query-params', QueryParamViewSet)
+router.register(r'questions', QuestionViewSet)
+router.register(r'users', ShallowUserViewSet)
 
-# Wire up our API using automatic URL routing.
-# Additionally, we include login URLs for the browsable API.
 urlpatterns = [
     path('api/', include(router.urls)),
 ]
