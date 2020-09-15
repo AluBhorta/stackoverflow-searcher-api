@@ -43,6 +43,15 @@ class QueryParam(models.Model):
         choices=SORT_CHOICES
     )
 
+    # TODO: add
+    # page
+    # pagesize
+    #
+    # min
+    # max
+    # fromdate
+    # todate
+
 
 class ShallowUser(models.Model):
     user_id = models.IntegerField(null=False, primary_key=True)
