@@ -78,8 +78,10 @@ def search_view(request: Request):
         "site": "stackoverflow",
     }
 
-    so_response = requests.get(so_api_url, params=params)
-    results = so_response.json().get('items')
+    so_response = requests.get(so_api_url, params=params).json()
+
+    questions = so_response.get('items')
+    has_more = so_response.get('has_more')
 
     out = {
         "quota_daily_limit": 100,
@@ -87,13 +89,8 @@ def search_view(request: Request):
         "quota_daily_remain": 100,
         "quota_minute_remain": 5,
 
-        "query_params": params,
-        "results": results,
-        "count": len(results),
-
-        "links": {
-            "previous": "",
-            "next": "",
-        }
+        "questions": questions,
+        "count": len(questions),
+        "hasMorePages": has_more
     }
     return Response(out)
