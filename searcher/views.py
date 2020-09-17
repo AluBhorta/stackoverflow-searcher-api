@@ -4,55 +4,22 @@ from rest_framework.request import Request
 from rest_framework import viewsets, permissions, status
 import requests
 
-from .models import QueryParam, Question, ShallowUser
-from .serializers import QueryParamSerializer, QuestionParamSerializer, ShallowUserSerializer
+from .models import QueryHash, Question, ShallowUser
+from .serializers import QueryHashSerializer, QuestionSerializer, ShallowUserSerializer
 from .quota import QuotaValidator
-from .query import QueryHandler
-
-
-class QueryParamViewSet(viewsets.ModelViewSet):
-    queryset = QueryParam.objects.all().order_by('sort')
-    serializer_class = QueryParamSerializer
-    permission_classes = [permissions.AllowAny]
-
-
-class QuestionViewSet(viewsets.ModelViewSet):
-    queryset = Question.objects.all().order_by('last_activity_date')
-    serializer_class = QuestionParamSerializer
-    permission_classes = [permissions.AllowAny]
-
-
-class ShallowUserViewSet(viewsets.ModelViewSet):
-    queryset = ShallowUser.objects.all().order_by('user_id')
-    serializer_class = ShallowUserSerializer
-    permission_classes = [permissions.AllowAny]
+from .util import get_dict_hash
 
 
 @api_view()
 def search_view(request: Request):
-    if not QuotaValidator().has_quota():
-        return Response({
-            "message": "No quota remaining"
-        }, status=status.HTTP_400_BAD_REQUEST)
+    # TODO:
+    # if not QuotaValidator().has_quota():
+    #     return Response({
+    #         "message": "Error! No quota remaining!"
+    #     }, status=status.HTTP_400_BAD_REQUEST)
 
     search_query_params = request.query_params.dict()
-
-    # db_query_param = QueryHandler(
-    #     search_query_params
-    # ).get_query_param_from_db()
-
-    # if db_query_param == None:
-    #     # make api call to SO.
-    #     # save (QueryParam, Question[], SearchResult) to DB
-    #     # update quota
-    #     # return out
-    #     pass
-
-    # else send result matching pk of db_query_param
-
-    # mvp
-    so_api_url = "https://api.stackexchange.com/2.2/search/advanced"
-    params = {
+    query_param = {
         "q": search_query_params.get("q"),
         "body": search_query_params.get("body"),
         "title": search_query_params.get("title"),
@@ -78,19 +45,104 @@ def search_view(request: Request):
         "site": "stackoverflow",
     }
 
-    so_response = requests.get(so_api_url, params=params).json()
+    qp_hash = get_dict_hash(query_param)
 
-    questions = so_response.get('items')
-    has_more = so_response.get('has_more')
+    try:
+        qh = QueryHash.objects.get(pk=qp_hash)
+        qh_data = QueryHashSerializer(qh).data
+
+        has_more = qh_data["has_more"]
+
+        question_id_strings = qh_data["question_ids"].split(",")
+        question_ids = [int(qid) for qid in question_id_strings]
+
+        questions = [Question.objects.get(question_id=qid)
+                     for qid in question_ids]
+
+        questions = [QuestionSerializer(question).data
+                     for question in questions]
+
+        for question in questions:
+            try:
+                user = ShallowUser.objects.get(
+                    user_id=(question.get("owner"))
+                )
+                user_data = ShallowUserSerializer(user).data
+                question["owner"] = user_data
+            except ShallowUser.DoesNotExist:
+                question["owner"] = None
+
+            question["tags"] = question.get("tags").split(",")
+
+        is_new = False
+    except QueryHash.DoesNotExist:
+        so_api_url = "https://api.stackexchange.com/2.2/search/advanced"
+
+        so_response = requests.get(so_api_url, params=query_param)
+        if so_response.status_code != 200:
+            return Response({
+                "message": "Error! Bad request!"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        so_response = so_response.json()
+        has_more = so_response.get('has_more')
+        questions = so_response.get('items')
+
+        for question in questions:
+            try:
+                user = ShallowUser.objects.get(
+                    user_id=question.get("owner").get("user_id"))
+            except ShallowUser.DoesNotExist:
+                user = ShallowUser.objects.create(
+                    user_id=question.get("owner").get("user_id"),
+                    reputation=question.get("owner").get("reputation"),
+                    display_name=question.get("owner").get("display_name"),
+                    profile_image=question.get("owner").get("profile_image"),
+                    link=question.get("owner").get("link"),
+                    user_type=question.get("owner").get("user_type")
+                )
+
+            tags = ",".join([t for t in question["tags"]])
+
+            try:
+                ques = Question.objects.get(
+                    question_id=question.get("question_id")
+                )
+            except Question.DoesNotExist:
+                ques = Question.objects.create(
+                    question_id=question.get("question_id"),
+                    is_answered=question.get("is_answered"),
+                    view_count=question.get("view_count"),
+                    answer_count=question.get("answer_count"),
+                    score=question.get("score"),
+                    last_activity_date=question.get("last_activity_date"),
+                    creation_date=question.get("creation_date"),
+                    content_license=question.get("content_license", ""),
+                    title=question.get("title"),
+                    link=question.get("link"),
+                    tags=tags,
+                    owner=user,
+                )
+
+        question_id_list = [str(question.get("question_id"))
+                            for question in questions]
+        question_ids = ','.join(question_id_list)
+
+        qh = QueryHash.objects.create(
+            query_param_hash=qp_hash,
+            question_ids=question_ids,
+            has_more=has_more
+        )
+
+        is_new = True
 
     out = {
-        "quota_daily_limit": 100,
-        "quota_minute_limit": 5,
         "quota_daily_remain": 100,
         "quota_minute_remain": 5,
-
-        "questions": questions,
+        "is_new": is_new,
         "count": len(questions),
-        "hasMorePages": has_more
+        "has_more": has_more,
+        "message": "Great Success!",
+        "questions": questions,
     }
     return Response(out)

@@ -1,14 +1,13 @@
 
 from rest_framework import serializers
 
-from .models import QueryParam, Question, ShallowUser
+from .models import Question, ShallowUser, QueryHash
 
 
-class QueryParamSerializer(serializers.ModelSerializer):
+class QueryHashSerializer(serializers.ModelSerializer):
     class Meta:
-        model = QueryParam
+        model = QueryHash
         fields = "__all__"
-
 
 class ShallowUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,7 +15,7 @@ class ShallowUserSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class QuestionParamSerializer(serializers.ModelSerializer):
+class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = "__all__"
