@@ -51,10 +51,13 @@ def search_view(request: Request):
         qh = QueryHash.objects.get(pk=qp_hash)
         qh_data = QueryHashSerializer(qh).data
 
-        has_more = qh_data["has_more"]
+        has_more = qh_data.get("has_more")
 
-        question_id_strings = qh_data["question_ids"].split(",")
-        question_ids = [int(qid) for qid in question_id_strings]
+        try:
+            question_id_strings = qh_data.get("question_ids").split(",")
+            question_ids = [int(qid) for qid in question_id_strings]
+        except:
+            question_ids = []
 
         questions = [Question.objects.get(question_id=qid)
                      for qid in question_ids]
@@ -72,7 +75,7 @@ def search_view(request: Request):
             except ShallowUser.DoesNotExist:
                 question["owner"] = None
 
-            question["tags"] = question.get("tags").split(",")
+            question["tags"] = question.get("tags", "").split(",")
 
         is_new = False
     except QueryHash.DoesNotExist:
@@ -86,43 +89,70 @@ def search_view(request: Request):
 
         so_response = so_response.json()
         has_more = so_response.get('has_more')
-        questions = so_response.get('items')
+        questions = so_response.get('items', [])
 
         for question in questions:
-            try:
-                user = ShallowUser.objects.get(
-                    user_id=question.get("owner").get("user_id"))
-            except ShallowUser.DoesNotExist:
-                user = ShallowUser.objects.create(
-                    user_id=question.get("owner").get("user_id"),
-                    reputation=question.get("owner").get("reputation"),
-                    display_name=question.get("owner").get("display_name"),
-                    profile_image=question.get("owner").get("profile_image"),
-                    link=question.get("owner").get("link"),
-                    user_type=question.get("owner").get("user_type")
-                )
+            user, user_created = ShallowUser.objects.get_or_create(
+                user_id=question.get("owner").get("user_id"),
+                reputation=question.get("owner").get("reputation"),
+                display_name=question.get("owner").get("display_name"),
+                profile_image=question.get(
+                    "owner").get("profile_image", ""),
+                link=question.get("owner").get("link", ""),
+                user_type=question.get("owner").get("user_type")
+            )
+            # try:
+            #     user = ShallowUser.objects.get(
+            #         user_id=question.get("owner").get("user_id")
+            #     )
+            # except ShallowUser.DoesNotExist:
+            #     user = ShallowUser(
+            #         user_id=question.get("owner").get("user_id"),
+            #         reputation=question.get("owner").get("reputation"),
+            #         display_name=question.get("owner").get("display_name"),
+            #         profile_image=question.get(
+            #             "owner").get("profile_image", ""),
+            #         link=question.get("owner").get("link", ""),
+            #         user_type=question.get("owner").get("user_type")
+            #     )
+            #     user.save()
 
-            tags = ",".join([t for t in question["tags"]])
+            tags = ",".join([t for t in question.get("tags", [])])
 
-            try:
-                ques = Question.objects.get(
-                    question_id=question.get("question_id")
-                )
-            except Question.DoesNotExist:
-                ques = Question.objects.create(
-                    question_id=question.get("question_id"),
-                    is_answered=question.get("is_answered"),
-                    view_count=question.get("view_count"),
-                    answer_count=question.get("answer_count"),
-                    score=question.get("score"),
-                    last_activity_date=question.get("last_activity_date"),
-                    creation_date=question.get("creation_date"),
-                    content_license=question.get("content_license", ""),
-                    title=question.get("title"),
-                    link=question.get("link"),
-                    tags=tags,
-                    owner=user,
-                )
+            ques, ques_created = Question.objects.get_or_create(
+                question_id=question.get("question_id"),
+                is_answered=question.get("is_answered"),
+                view_count=question.get("view_count"),
+                answer_count=question.get("answer_count"),
+                score=question.get("score"),
+                last_activity_date=question.get("last_activity_date"),
+                creation_date=question.get("creation_date"),
+                content_license=question.get("content_license", ""),
+                title=question.get("title", ""),
+                link=question.get("link", ""),
+                tags=tags or "",
+                owner=user,
+            )
+            # try:
+            #     ques = Question.objects.get(
+            #         question_id=question.get("question_id")
+            #     )
+            # except Question.DoesNotExist:
+            #     ques = Question(
+            #         question_id=question.get("question_id"),
+            #         is_answered=question.get("is_answered"),
+            #         view_count=question.get("view_count"),
+            #         answer_count=question.get("answer_count"),
+            #         score=question.get("score"),
+            #         last_activity_date=question.get("last_activity_date"),
+            #         creation_date=question.get("creation_date"),
+            #         content_license=question.get("content_license", ""),
+            #         title=question.get("title", ""),
+            #         link=question.get("link", ""),
+            #         tags=tags or "",
+            #         owner=user,
+            #     )
+            #     ques.save()
 
         question_id_list = [str(question.get("question_id"))
                             for question in questions]
