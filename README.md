@@ -2,6 +2,14 @@
 
 Proxy API for searching questions on StackOverflow. Caches search query results on local DB.
 
+The search API is exposed at:
+
+```http
+GET /api/search/
+```
+
+This project is meant to be used in conjuction with the [client project](https://github.com/AluBhorta/stackoverflow-searcher-client).
+
 ## Usage
 
 Dependencies:

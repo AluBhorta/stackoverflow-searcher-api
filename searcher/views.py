@@ -12,11 +12,11 @@ from .util import get_dict_hash
 
 @api_view()
 def search_view(request: Request):
-    # TODO:
-    # if not QuotaValidator().has_quota():
-    #     return Response({
-    #         "message": "Error! No quota remaining!"
-    #     }, status=status.HTTP_400_BAD_REQUEST)
+    quota_validator = QuotaValidator()
+    if not quota_validator.has_quota():
+        return Response({
+            "message": "Error! No quota remaining!"
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     search_query_params = request.query_params.dict()
     query_param = {
@@ -92,67 +92,44 @@ def search_view(request: Request):
         questions = so_response.get('items', [])
 
         for question in questions:
-            user, user_created = ShallowUser.objects.get_or_create(
-                user_id=question.get("owner").get("user_id"),
-                reputation=question.get("owner").get("reputation"),
-                display_name=question.get("owner").get("display_name"),
-                profile_image=question.get(
-                    "owner").get("profile_image", ""),
-                link=question.get("owner").get("link", ""),
-                user_type=question.get("owner").get("user_type")
-            )
-            # try:
-            #     user = ShallowUser.objects.get(
-            #         user_id=question.get("owner").get("user_id")
-            #     )
-            # except ShallowUser.DoesNotExist:
-            #     user = ShallowUser(
-            #         user_id=question.get("owner").get("user_id"),
-            #         reputation=question.get("owner").get("reputation"),
-            #         display_name=question.get("owner").get("display_name"),
-            #         profile_image=question.get(
-            #             "owner").get("profile_image", ""),
-            #         link=question.get("owner").get("link", ""),
-            #         user_type=question.get("owner").get("user_type")
-            #     )
-            #     user.save()
+            try:
+                user = ShallowUser.objects.get(
+                    user_id=question.get("owner").get("user_id")
+                )
+            except ShallowUser.DoesNotExist:
+                user = ShallowUser(
+                    user_id=question.get("owner").get("user_id"),
+                    reputation=question.get("owner").get("reputation"),
+                    display_name=question.get("owner").get("display_name"),
+                    profile_image=question.get(
+                        "owner").get("profile_image", ""),
+                    link=question.get("owner").get("link", ""),
+                    user_type=question.get("owner").get("user_type")
+                )
+                user.save()
 
             tags = ",".join([t for t in question.get("tags", [])])
 
-            ques, ques_created = Question.objects.get_or_create(
-                question_id=question.get("question_id"),
-                is_answered=question.get("is_answered"),
-                view_count=question.get("view_count"),
-                answer_count=question.get("answer_count"),
-                score=question.get("score"),
-                last_activity_date=question.get("last_activity_date"),
-                creation_date=question.get("creation_date"),
-                content_license=question.get("content_license", ""),
-                title=question.get("title", ""),
-                link=question.get("link", ""),
-                tags=tags or "",
-                owner=user,
-            )
-            # try:
-            #     ques = Question.objects.get(
-            #         question_id=question.get("question_id")
-            #     )
-            # except Question.DoesNotExist:
-            #     ques = Question(
-            #         question_id=question.get("question_id"),
-            #         is_answered=question.get("is_answered"),
-            #         view_count=question.get("view_count"),
-            #         answer_count=question.get("answer_count"),
-            #         score=question.get("score"),
-            #         last_activity_date=question.get("last_activity_date"),
-            #         creation_date=question.get("creation_date"),
-            #         content_license=question.get("content_license", ""),
-            #         title=question.get("title", ""),
-            #         link=question.get("link", ""),
-            #         tags=tags or "",
-            #         owner=user,
-            #     )
-            #     ques.save()
+            try:
+                ques = Question.objects.get(
+                    question_id=question.get("question_id")
+                )
+            except Question.DoesNotExist:
+                ques = Question(
+                    question_id=question.get("question_id"),
+                    is_answered=question.get("is_answered"),
+                    view_count=question.get("view_count"),
+                    answer_count=question.get("answer_count"),
+                    score=question.get("score"),
+                    last_activity_date=question.get("last_activity_date"),
+                    creation_date=question.get("creation_date"),
+                    content_license=question.get("content_license", ""),
+                    title=question.get("title", ""),
+                    link=question.get("link", ""),
+                    tags=tags or "",
+                    owner=user,
+                )
+                ques.save()
 
         question_id_list = [str(question.get("question_id"))
                             for question in questions]
@@ -166,9 +143,11 @@ def search_view(request: Request):
 
         is_new = True
 
+    remaining_quota = quota_validator.get_remaining_quota()
+
     out = {
-        "quota_daily_remain": 100,
-        "quota_minute_remain": 5,
+        "quota_daily_remain": remaining_quota.get("daily_quota", 0),
+        "quota_minute_remain": remaining_quota.get("minute_quota", 0),
         "is_new": is_new,
         "count": len(questions),
         "has_more": has_more,
